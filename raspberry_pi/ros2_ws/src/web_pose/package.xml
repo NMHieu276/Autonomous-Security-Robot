@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>web_pose</name>
+  <version>1.0.0</version>
+  <description>
+    ROS2 Humble package for Robot An Ninh SLAM.
+    Provides:
+      - mpu6050_driver: MPU6050 GY-521 gyroscope driver via I2C → /imu/data
+      - uart_bridge: translates /cmd_vel + /robot_mode → STM32 UART ASCII protocol
+  </description>
+
+  <maintainer email="ubuntu@todo.todo">ubuntu</maintainer>
+  <license>Apache-2.0</license>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>tf2_geometry_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

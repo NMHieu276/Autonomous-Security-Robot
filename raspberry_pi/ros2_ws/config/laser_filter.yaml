@@ -1,0 +1,21 @@
+# laser_filter.yaml
+# ──────────────────────────────────────────────────────────────
+# Applied by the laser_filters/scan_to_scan_filter_chain node.
+# Removes scan points closer than 15 cm (sensor blind spot) and
+# farther than 12 m (RPLidar A1M8 rated range).
+#
+# Subscribed topic:   /scan           (raw from sllidar_node)
+# Published topic:    /scan_filtered  (fed into slam_toolbox)
+# ──────────────────────────────────────────────────────────────
+
+scan_to_scan_filter_chain:
+  ros__parameters:
+    filter1:
+      name: range_filter
+      type: laser_filters/LaserScanRangeFilter
+      params:
+        use_message_range_limits: false
+        lower_threshold: 0.15      # metres — below this = noise (replace with inf)
+        upper_threshold: 12.0      # metres — RPLidar A1M8 max range
+        lower_replacement_value: .inf
+        upper_replacement_value: .inf
