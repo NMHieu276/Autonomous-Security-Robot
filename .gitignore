@@ -1,0 +1,49 @@
+# ── ROS2 Build Artifacts ──────────────────────────────────
+build/
+install/
+log/
+.colcon_install_layout
+
+# ── Python ────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+.eggs/
+*.egg
+.pytest_cache/
+.mypy_cache/
+
+# ── Arduino / PlatformIO ──────────────────────────────────
+*.hex
+*.elf
+*.bin
+*.map
+.pio/
+.pioenvs/
+
+# ── Editor & OS ───────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ── Map files (generated at runtime) ─────────────────────
+*.pgm
+*.yaml.bak
+map_*.posegraph
+map_*.data
+
+# ── Logs ──────────────────────────────────────────────────
+*.log
+ros_*.log
+
+# ── Temp ──────────────────────────────────────────────────
+doc_content.txt
+
+# ── Duplicate root-level STM32 file (canonical copy is in stm32/) ──
+/robot_STM32.ino
