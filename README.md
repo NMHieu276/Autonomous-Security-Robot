@@ -1,292 +1,260 @@
-# 🤖 Autonomous Mobile Robot — SLAM Navigation
+# ROS2 Autonomous Security Robot: Core SLAM & Embedded Navigation System
 
-> **Robot An Ninh** — Autonomous security robot with real-time SLAM mapping, web dashboard control, and obstacle avoidance.  
-> Built on **Raspberry Pi 4 + ROS2 Humble + STM32F103**.
+An integrated, end-to-end hardware and software architecture for an autonomous security and patrol robot. The system utilizes a hybrid computing model: a **Raspberry Pi 4** handles high-level spatial computing (ROS2 Humble under Ubuntu Server), while an **STM32 micro-controller** executes real-time low-level hardware control, peripheral management, and hardware-level obstacle avoidance. Teleoperation and live data visualization are delivered via an asynchronous web-based dashboard.
 
 ---
 
-## 📌 Project Overview
+## 🛠️ System Architecture & Hardware Stack
 
-| Component | Hardware | Software |
-|-----------|----------|----------|
-| Motor Controller | STM32F103C8T6 (Blue Pill) | Arduino / PlatformIO |
-| Main Computer | Raspberry Pi 4 Model B (4GB) | Ubuntu Server 22.04 LTS + ROS2 Humble |
-| LiDAR | RPLidar A1M8 | sllidar_ros2 + slam_toolbox |
-| IMU | MPU6050 GY-521 | Custom ROS2 driver (I2C) |
-| Camera | IMX219 (Raspberry Pi Camera v2) | rpicam-vid MJPEG stream |
-| Web Dashboard | Any browser on same LAN | rosbridge + vanilla JS |
+### 1. Component Specification
+| Core Function | Hardware Component | Software Environment / Driver |
+| :--- | :--- | :--- |
+| **Low-Level Motor Control** | STM32F103C8T6 (Blue Pill) | Embedded C / PlatformIO & Arduino |
+| **Main Processing Unit** | Raspberry Pi 4 Model B (4GB) | Ubuntu Server 22.04 LTS + ROS2 Humble |
+| **Spatial Range Sensing** | RPLidar A1M8 | `sllidar_ros2` + `slam_toolbox` |
+| **Inertial Measurement** | MPU6050 GY-521 | Custom I2C ROS2 Driver Node |
+| **Visual Feed** | IMX219 Raspberry Pi Camera v2 | `rpicam-vid` (MJPEG Pipeline) |
+| **Remote Teleoperation** | Cross-platform Web Browser | `rosbridge_suite` + Native JavaScript |
 
-### System Architecture
+### 2. Data Flow Map
 
 ```
+
 ┌─────────────────────────────────────────────────────┐
-│                Raspberry Pi 4                        │
+│                  MAIN COMPUTE (Raspberry Pi 4)      │
 │  ┌──────────┐  ┌──────────┐  ┌──────────────────┐  │
 │  │  slam_   │  │rosbridge │  │   cam_stream.py  │  │
 │  │ toolbox  │  │  :9090   │  │   (MJPEG :8080)  │  │
 │  └────┬─────┘  └────┬─────┘  └──────────────────┘  │
 │       │ /map        │ WebSocket                      │
 │  ┌────┴──────────────────────────────────────┐       │
-│  │         ROS2 Humble (CycloneDDS)          │       │
+│  │         ROS2 Humble Ecosystem (CycloneDDS) │       │
 │  │  /scan_filtered  /imu/data  /cmd_vel      │       │
 │  └──┬─────────────┬──────────────────────────┘       │
 │     │             │                                   │
 │  ┌──┴──────┐  ┌───┴─────────┐                        │
 │  │RPLidar  │  │  MPU6050    │  uart_bridge.py         │
-│  │ A1M8    │  │  GY-521     │  GPIO UART → STM32      │
+│  │ A1M8    │  │  GY-521     │  GPIO UART Stream       │
 │  └─────────┘  └─────────────┘                        │
-└─────────────────────────────────────────────────────┘
-            ↕ WebSocket ws://pi-ip:9090
+└──────────────────────────┬──────────────────────────┘
+│ UART Link (115200 baud)
+▼
 ┌─────────────────────────────────────────────────────┐
-│               Web Browser (any device)               │
-│  ┌────────────────────────────────────────────────┐  │
-│  │  SLAM Map · Camera Feed · Joystick · D-pad     │  │
-│  │          web/index.html (served by Pi)          │  │
-│  └────────────────────────────────────────────────┘  │
+│            ACTUATION LAYER (STM32F103)              │
+│  Hardware PWM · HC-SR04 Ultrasonic · Auto-Avoidance │
 └─────────────────────────────────────────────────────┘
-            ↕ UART (115200 baud, GPIO14/15)
+▲
+│ Wireless WebSocket (:9090)
+▼
 ┌─────────────────────────────────────────────────────┐
-│                STM32F103C8T6                         │
-│  Motor PWM · HC-SR04 Ultrasonic · AUTO obstacle avoid│
+│              OPERATOR DASHBOARD (Web Browser)       │
+│    Real-time SLAM Map · Telemetry · Video Stream    │
 └─────────────────────────────────────────────────────┘
+
 ```
 
 ---
 
-## 📁 Repository Structure
+## 📂 Project Directory Structure
+
 
 ```
+
 quangem/
-├── README.md
-├── .gitignore
-│
 ├── stm32/
-│   └── robot_STM32.ino          # STM32 firmware (Arduino IDE / PlatformIO)
-│
+│   └── robot_STM32.ino          # Microcontroller firmware execution loop
 ├── raspberry_pi/
 │   └── ros2_ws/
 │       ├── src/
-│       │   └── web_pose/        # Custom ROS2 Python package
+│       │   └── web_pose/        # Custom Python-based ROS2 abstraction package
 │       │       ├── web_pose/
-│       │       │   ├── mpu6050_driver.py   # IMU → /imu/data
-│       │       │   └── uart_bridge.py      # /cmd_vel → STM32 UART
-│       │       ├── launch/
-│       │       │   └── robot_bringup.launch.py
-│       │       ├── package.xml
-│       │       └── setup.py
+│       │       │   ├── mpu6050_driver.py   # I2C IMU data publisher
+│       │       │   └── uart_bridge.py      # ROS2 velocity to UART translator
+│       │       └── launch/
+│       │           └── robot_bringup.launch.py
 │       └── config/
-│           └── laser_filter.yaml           # LiDAR range filter config
-│
+│           └── laser_filter.yaml           # Scan range filtering configuration
 └── web/
-    ├── index.html               # SLAM Dashboard (served from Pi)
-    └── cam_stream.py            # MJPEG camera server (:8080)
+├── index.html               # Unified control dashboard frontend
+└── cam_stream.py            # Independent MJPEG video broadcasting utility
+
 ```
 
 ---
 
-## ⚡ Quick Start
+## ⚡ Deployment & Initialization
 
-### 1. Flash STM32 Firmware
+### Phase 1: Actuation Firmware Deployment (STM32)
+Compile and flash `stm32/robot_STM32.ino` via **Arduino IDE** or **PlatformIO** using the `STM32duino` core wrapper.
+* **Target Board:** Generic STM32F1 series (BluePill F103C8)
+* **Flashing Interface:** ST-Link V2 or USB-to-TTL Adapter (UART1 on PA9/PA10)
+* **Bus Speed:** 115200 baud
 
-Open `stm32/robot_STM32.ino` in **Arduino IDE** with the **STM32duino** board package.
-
-```
-Board: Generic STM32F1 series → BluePill F103C8
-Upload method: Serial (UART1 via USB-TTL adapter) or ST-Link
-Baud rate: 115200
-```
-
-### 2. Set Up Raspberry Pi 4
-
-Follow the detailed step-by-step guide in [`docs/setup_guide.md`](docs/setup_guide.md).
+### Phase 2: Host Operating System Configuration (Pi 4)
+Refer to the comprehensive installation workflow in [`docs/setup_guide.md`](docs/setup_guide.md).
 
 > [!IMPORTANT]
-> **Thông tin đăng nhập Pi (credentials)**  
-> Khi cài Ubuntu Server 22.04, bạn sẽ được yêu cầu tạo tài khoản. Dự án này dùng:
-> - **Username:** `ubuntu` (tên mặc định — có thể đổi tuỳ ý)
-> - **Password:** *(tự đặt trong quá trình cài đặt — **không** lưu mật khẩu thật vào repo)*
+> **Thông tin đăng nhập hệ thống (Pi Credentials)**  
+> Khi cài đặt hệ điều hành Ubuntu Server 22.04, hãy thiết lập tài khoản quản trị cục bộ. Mã nguồn này mặc định cấu hình theo phân quyền:
+> - **Username:** `ubuntu` (Có thể tùy chỉnh lại theo nhu cầu thiết lập).
+> - **Password:** *(Người dùng tự cấu hình khi cài đặt — **Tuyệt đối không** commit mật khẩu lên hệ thống quản lý mã nguồn).*
 >
-> Các lệnh trong hướng dẫn có dạng `sudo usermod -aG ... ubuntu` — thay `ubuntu` bằng username bạn đã chọn nếu khác.
+> Nếu thay đổi tài khoản mặc định, đảm bảo cập nhật lại đối số lệnh phân quyền: `sudo usermod -aG ... <your_username>`.
 
-**Quick summary:**
-
+To compile the workspace on the host Linux distribution:
 ```bash
-# 1. Install ROS2 Humble (Ubuntu 22.04 LTS)
-# 2. Clone and build workspace
+# Initialize and source ROS2 workspace
 mkdir -p ~/ros2_ws/src && cd ~/ros2_ws/src
-git clone https://github.com/Slamtec/sllidar_ros2.git
-# Copy the web_pose package from this repo
-cp -r /path/to/this/repo/raspberry_pi/ros2_ws/src/web_pose .
-cp -r /path/to/this/repo/raspberry_pi/ros2_ws/config ~/ros2_ws/
+git clone [https://github.com/Slamtec/sllidar_ros2.git](https://github.com/Slamtec/sllidar_ros2.git)
 
+# Migrate local packages to execution workspace
+cp -r /path/to/repo/raspberry_pi/ros2_ws/src/web_pose .
+cp -r /path/to/repo/raspberry_pi/ros2_ws/config ~/ros2_ws/
+
+# Resolve dependencies and execute build pipeline
 cd ~/ros2_ws
 rosdep install --from-paths src --ignore-src -r -y
 colcon build --symlink-install
 source ~/.bashrc
+
 ```
 
+### Phase 3: System Launch Sequence
 
-### 3. Launch the Robot
+Execute the stack concurrently across isolated shell sessions:
 
 ```bash
-# Terminal 1 — Hardware nodes (LiDAR + IMU + UART bridge)
+# Session 1: Baseline Hardware Bringup (Sensors & Serial Bridges)
 ros2 launch web_pose robot_bringup.launch.py
 
-# Terminal 2 — SLAM
-ros2 launch slam_toolbox online_async_launch.py \
-  slam_params_file:=/opt/ros/humble/share/slam_toolbox/config/mapper_params_online_async.yaml
+# Session 2: Asynchronous SLAM Mapping Pipeline
+ros2 launch slam_toolbox online_async_launch.py slam_params_file:=/opt/ros/humble/share/slam_toolbox/config/mapper_params_online_async.yaml
 
-# Terminal 3 — ROS Bridge (WebSocket for dashboard)
+# Session 3: WebSocket Network Layer Bridge
 ros2 launch rosbridge_server rosbridge_websocket_launch.xml
 
-# Terminal 4 — Camera stream
+# Session 4: Visual Camera Broadcaster
 python3 ~/web/cam_stream.py
 
-# Terminal 5 — Web server
+# Session 5: Static Web Assets Server
 cd ~/web && python3 -m http.server 8000
+
 ```
 
-Open browser: **`http://<pi-ip>:8000`**
+*Access the control interface by navigating to:* `http://<target-raspberry-pi-ip>:8000`
 
 ---
 
-## 🎮 Controls
+## 🔌 Hardware Interface & Pin Map
 
-| Input | Action |
-|-------|--------|
-| W / ↑ | Forward |
-| S / ↓ | Backward |
-| A / ← | Turn Left |
-| D / → | Turn Right |
-| Space | Emergency Stop |
-| D-pad buttons | Same as keyboard |
-| Analog Joystick | Smooth proportional control |
-| AUTO NAV button | Toggle STM32 obstacle avoidance |
+### Pinout: STM32 to Motor Driver Interface (L298N / TB6612)
 
----
+| STM32 Peripheral Pin | Functional Mapping |
+| --- | --- |
+| **PA0** | Left Channel PWM (`ENA`) |
+| **PA1** | Right Channel PWM (`ENB`) |
+| **PA2** | Left Channel Direction Direction A (`IN1`) |
+| **PA3** | Left Channel Direction Direction B (`IN2`) |
+| **PA4** | Right Channel Direction Direction A (`IN3`) |
+| **PA5** | Right Channel Direction Direction B (`IN4`) |
 
-## 🔌 Hardware Wiring
+### Pinout: STM32 to HC-SR04 Ultrasonic Sensor
 
-### STM32 ↔ Motor Driver (L298N / TB6612)
+| STM32 Peripheral Pin | Sensor Pin |
+| --- | --- |
+| **PB8** | Trigger Signal (`TRIG`) |
+| **PB9** | Echo Input Signal (`ECHO`) |
 
-| STM32 Pin | Function |
-|-----------|----------|
-| PA0 (ENA) | Left motor PWM |
-| PA1 (ENB) | Right motor PWM |
-| PA2 (IN1) | Left motor direction A |
-| PA3 (IN2) | Left motor direction B |
-| PA4 (IN3) | Right motor direction A |
-| PA5 (IN4) | Right motor direction B |
+### Pinout: Pi 4 Host to STM32 Bridge
 
-### STM32 ↔ HC-SR04 Ultrasonic
+| Raspberry Pi 4 GPIO | STM32 Microcontroller Pin |
+| --- | --- |
+| **GPIO14 (TXD / Pin 8)** | RX1 (PA10 - 3.3V Tolerant) |
+| **GPIO15 (RXD / Pin 10)** | TX1 (PA9 - 3.3V Tolerant) |
+| **GND (Pin 6/9/14...)** | Ground Reference |
 
-| STM32 Pin | HC-SR04 |
-|-----------|---------|
-| PB8 (TRIG) | TRIG |
-| PB9 (ECHO) | ECHO |
+### Pinout: Pi 4 Host to MPU6050 IMU Sensor
 
-### Pi 4 ↔ STM32 (UART)
-
-| Pi 4 GPIO | STM32 |
-|-----------|-------|
-| GPIO14 (TX, pin 8) | RX (PA10 / Serial1) |
-| GPIO15 (RX, pin 10) | TX (PA9 / Serial1) |
-| GND | GND |
-
-> ⚠️ **Logic level**: Pi GPIO is 3.3V; STM32 Blue Pill is 3.3V tolerant on most pins. No level shifter needed for this configuration.
-
-### Pi 4 ↔ MPU6050 (I2C)
-
-| Pi 4 GPIO | MPU6050 |
-|-----------|---------|
-| GPIO2 (SDA, pin 3) | SDA |
-| GPIO3 (SCL, pin 5) | SCL |
-| 3.3V (pin 1) | VCC |
-| GND | GND |
+| Raspberry Pi 4 GPIO | MPU6050 Pin |
+| --- | --- |
+| **GPIO2 (SDA / Pin 3)** | Serial Data (`SDA`) |
+| **GPIO3 (SCL / Pin 5)** | Serial Clock (`SCL`) |
+| **3.3V Power (Pin 1)** | VCC Input |
+| **GND (Pin 9/25...)** | Ground Reference |
 
 ---
 
-## 🗺️ SLAM Map Dashboard
+## 📡 Networking & Communication Protocols
 
-The web dashboard (`web/index.html`) provides:
+### 1. Unified Web Dashboard Controls
 
-- **Live SLAM map** with robot position overlay (click minimap to expand)
-- **LiDAR scan points** rendered in real-time
-- **Camera feed** via MJPEG stream
-- **Robot pose** (X, Y, Yaw)
-- **Speed telemetry** (linear m/s, angular rad/s)
-- **Map save** button (serializes pose graph to disk)
-- **D-pad + analog joystick** (touch-friendly)
-- **Keyboard shortcuts** (WASD / arrow keys)
+* **Keyboard Mappings:** `W` (Forward), `S` (Reverse), `A` (CCW Spin), `D` (CW Spin), `Spacebar` (Emergency Stop Trigger).
+* **Proportional Navigation:** On-screen virtual analog joystick supporting dynamic linear and angular scaling.
+* **Autonomous Override:** On-board `AUTO NAV` switch to yield low-level routing autonomy directly to the micro-controller's sub-routine.
 
----
+### 2. Serial ASCII Command Protocol (115200 Baud)
 
-## 🛠️ ROS2 Topics
+Commands are packaged as payload strings terminated via a newline literal (`\n`):
 
-| Topic | Type | Description |
-|-------|------|-------------|
-| `/scan` | `sensor_msgs/LaserScan` | Raw LiDAR scan |
-| `/scan_filtered` | `sensor_msgs/LaserScan` | Filtered scan [0.15–12m] |
-| `/imu/data` | `sensor_msgs/Imu` | MPU6050 gyro Z (50 Hz) |
-| `/cmd_vel` | `geometry_msgs/Twist` | Velocity commands |
-| `/robot_mode` | `std_msgs/String` | "AUTO" / "MANUAL" |
-| `/map` | `nav_msgs/OccupancyGrid` | SLAM occupancy map |
-| `/robot_pose` | `geometry_msgs/PoseStamped` | Robot estimated pose |
-| `/odom` | `nav_msgs/Odometry` | Odometry from SLAM |
+* `ON` / `BACK`: Continuous linear propulsion vectors.
+* `LEFT` / `RIGHT`: Local coordinate spot-turns.
+* `UP_LEFT` / `UP_RIGHT` / `DOWN_LEFT` / `DOWN_RIGHT`: Combined arc maneuvering vectors.
+* `AUTO`: Relinquishes master control to the local ultrasonic hardware avoidance routine.
+* `OFF` / `MANUAL`: Halts processing loop and re-establishes master teleoperation authority.
 
 ---
 
-## 📡 STM32 UART Command Protocol
+## 🎛️ ROS2 Computation Graphs
 
-Commands are sent as ASCII strings terminated with `\n` at 115200 baud:
+### Core Topic Registry
 
-| Command | Behavior |
-|---------|----------|
-| `ON` | Move forward |
-| `BACK` | Move backward |
-| `LEFT` | Spin left |
-| `RIGHT` | Spin right |
-| `UP_LEFT` | Forward + left arc |
-| `UP_RIGHT` | Forward + right arc |
-| `DOWN_LEFT` | Backward + left arc |
-| `DOWN_RIGHT` | Backward + right arc |
-| `AUTO` | Enable onboard obstacle avoidance |
-| `OFF` / `MANUAL` | Stop / exit AUTO mode |
+| ROS2 Topic | Message Data Type | Function Description |
+| --- | --- | --- |
+| `/scan` | `sensor_msgs/LaserScan` | Unfiltered, raw spatial array data from LiDAR |
+| `/scan_filtered` | `sensor_msgs/LaserScan` | Range-bounded spatial array [0.15m – 12.0m] |
+| `/imu/data` | `sensor_msgs/Imu` | High-frequency rotational acceleration vectors (50 Hz) |
+| `/cmd_vel` | `geometry_msgs/Twist` | Target linear and angular multi-axis vectors |
+| `/robot_mode` | `std_msgs/String` | Operational state reporting (`AUTO` / `MANUAL`) |
+| `/map` | `nav_msgs/OccupancyGrid` | Generated dynamic SLAM spatial matrix map |
+| `/robot_pose` | `geometry_msgs/PoseStamped` | Estimated coordinate positioning transformations |
+| `/odom` | `nav_msgs/Odometry` | Derived spatial transformation odometry data |
 
 ---
 
-## 📋 Dependencies
+## 📋 Software Dependencies
 
-### Raspberry Pi (Ubuntu 22.04 + ROS2 Humble)
+### Host Architecture (Raspberry Pi Stack)
 
 ```bash
-# ROS2 packages
+# Core ROS2 Components
 ros-humble-ros-base
 ros-humble-slam-toolbox
 ros-humble-rosbridge-suite
 ros-humble-rmw-cyclonedds-cpp
 ros-humble-laser-filters
 
-# Python packages
+# Target System Level Libraries
 pip3 install smbus2 pyserial
+
 ```
 
-### STM32 (Arduino IDE)
+### Actuation Firmware Layer (STM32 Stack)
 
-- Board package: `STM32duino` (stm32duino.github.io)
-- No extra libraries required
-
----
-
-## 📄 License
-
-This project is released under the **MIT License**.
+* **BSP Layer:** `STM32duino` official board support definitions repository layout.
+* **External Libraries:** None (Built entirely utilizing native low-overhead peripheral abstractions).
 
 ---
 
-## 🙏 Acknowledgements
+## 📄 Licensing & Acknowledgments
 
-- [Slamtec sllidar_ros2](https://github.com/Slamtec/sllidar_ros2)
-- [ROS2 slam_toolbox](https://github.com/SteveMacenski/slam_toolbox)
-- [rosbridge_suite](https://github.com/RobotWebTools/rosbridge_suite)
-- [ROSLIB.js](https://github.com/RobotWebTools/roslibjs)
+This framework is licensed under the terms of the **MIT License**.
+
+Special credit and appreciation to the open-source projects providing foundations for this implementation:
+
+* [Slamtec sllidar_ros2 Hardware Drivers](https://github.com/Slamtec/sllidar_ros2)
+* [Steve Macenski's slam_toolbox Mapping Engine](https://github.com/SteveMacenski/slam_toolbox)
+* [RobotWebTools Suite (rosbridge_suite & roslibjs)](https://github.com/RobotWebTools)
+
+```
+
+```
